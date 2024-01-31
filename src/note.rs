@@ -17,6 +17,7 @@ pub struct Note<'repo> {
 }
 
 unsafe impl<'repo> Send for Note<'repo> {}
+unsafe impl<'repo> Sync for Note<'repo> {}
 
 /// An iterator over all of the notes within a repository.
 pub struct Notes<'repo> {
@@ -25,6 +26,7 @@ pub struct Notes<'repo> {
 }
 
 unsafe impl<'repo> Send for Notes<'repo> {}
+unsafe impl<'repo> Sync for Notes<'repo> {}
 
 impl<'repo> Note<'repo> {
     /// Get the note author
