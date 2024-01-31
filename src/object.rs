@@ -15,6 +15,7 @@ pub struct Object<'repo> {
 }
 
 unsafe impl<'repo> Send for Object<'repo> {}
+unsafe impl<'repo> Sync for Object<'repo> {}
 
 impl<'repo> Object<'repo> {
     /// Get the id (SHA1) of a repository object
