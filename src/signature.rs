@@ -23,6 +23,8 @@ pub struct Signature<'a> {
     _marker: marker::PhantomData<&'a str>,
     owned: bool,
 }
+unsafe impl<'a> Send for Signature<'a> {}
+unsafe impl<'a> Sync for Signature<'a> {}
 
 impl<'a> Signature<'a> {
     /// Create a new action signature with a timestamp of 'now'.
