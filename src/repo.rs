@@ -1,7 +1,6 @@
 use libc::{c_char, c_int, c_uint, c_void, size_t};
 use std::env;
 use std::ffi::{CStr, CString, OsStr};
-use std::iter::IntoIterator;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::ptr;
@@ -1460,6 +1459,25 @@ impl Repository {
         }
     }
 
+    /// Lookup a reference to one of the objects by id prefix in a repository.
+    pub fn find_object_by_prefix(
+        &self,
+        prefix_hash: &str,
+        kind: Option<ObjectType>,
+    ) -> Result<Object<'_>, Error> {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            try_call!(raw::git_object_lookup_prefix(
+                &mut raw,
+                self.raw(),
+                Oid::from_str(prefix_hash)?.raw(),
+                prefix_hash.len(),
+                kind
+            ));
+            Ok(Binding::from_raw(raw))
+        }
+    }
+
     /// Create a new direct reference.
     ///
     /// This function will return an error if a reference already exists with
@@ -1960,6 +1978,20 @@ impl Repository {
         let mut raw = ptr::null_mut();
         unsafe {
             try_call!(raw::git_tag_lookup(&mut raw, self.raw, id.raw()));
+            Ok(Binding::from_raw(raw))
+        }
+    }
+
+    /// Lookup a tag object by prefix hash from the repository.
+    pub fn find_tag_by_prefix(&self, prefix_hash: &str) -> Result<Tag<'_>, Error> {
+        let mut raw = ptr::null_mut();
+        unsafe {
+            try_call!(raw::git_tag_lookup_prefix(
+                &mut raw,
+                self.raw,
+                Oid::from_str(prefix_hash)?.raw(),
+                prefix_hash.len()
+            ));
             Ok(Binding::from_raw(raw))
         }
     }
@@ -3679,6 +3711,17 @@ mod tests {
         assert_eq!(repo.head().unwrap().target().unwrap(), main_oid);
     }
 
+    #[test]
+    fn smoke_find_object_by_prefix() {
+        let (_td, repo) = crate::test::repo_init();
+        let head = repo.head().unwrap().target().unwrap();
+        let head = repo.find_commit(head).unwrap();
+        let head_id = head.id();
+        let head_prefix = &head_id.to_string()[..7];
+        let obj = repo.find_object_by_prefix(head_prefix, None).unwrap();
+        assert_eq!(obj.id(), head_id);
+    }
+
     /// create the following:
     ///    /---o4
     ///   /---o3
@@ -4237,5 +4280,27 @@ Committer Name <committer.proper@email> <committer@email>"#,
         // resolve_signature() works
         assert_eq!(mm_resolve_author.email(), mailmapped_author.email());
         assert_eq!(mm_resolve_committer.email(), mailmapped_committer.email());
+    }
+
+    #[test]
+    fn smoke_find_tag_by_prefix() {
+        let (_td, repo) = crate::test::repo_init();
+        let head = repo.head().unwrap();
+        let tag_oid = repo
+            .tag(
+                "tag",
+                &repo
+                    .find_object(head.peel_to_commit().unwrap().id(), None)
+                    .unwrap(),
+                &repo.signature().unwrap(),
+                "message",
+                false,
+            )
+            .unwrap();
+        let tag = repo.find_tag(tag_oid).unwrap();
+        let found_tag = repo
+            .find_tag_by_prefix(&tag.id().to_string()[0..7])
+            .unwrap();
+        assert_eq!(tag.id(), found_tag.id());
     }
 }
